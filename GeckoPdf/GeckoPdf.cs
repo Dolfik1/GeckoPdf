@@ -12,6 +12,10 @@ namespace GeckoPdf
     {
         private GeckoPdfConfig _config;
 
+        public int MaxLockingCheckAttempts { get; set; } = 100;
+
+        public int PdfLockingCheckDelay { get; set; } = 100;
+
         /// <summary>
         /// A HTML to PDF converter based on Gecko engine
         /// </summary>
@@ -36,35 +40,47 @@ namespace GeckoPdf
                 // After loading document, waits some time, and send print ready signal
                 Task.Run(() =>
                 {
-                    Thread.Sleep(50); // Some delay need, otherwise throws COMException
+                    Thread.Sleep(1000); // Some delay need, otherwise throws COMException
                     printReadySignal.Release();
                 });
             };
 
             // Invoke navigate method in STA browser thread
-            browser.TopLevelControl.Invoke((MethodInvoker)delegate
+            browser.Invoke((MethodInvoker)delegate
             {
                 browser.Navigate(url);
             });
 
-            printReadySignal.Wait(); // Wait print available
-            printReadySignal = new SemaphoreSlim(0, 1);
+            printReadySignal.Wait(); // Waiting before print will completed
 
             // Create temporary file and print page to him
             var filePath = Path.GetTempFileName();
-            browser.TopLevelControl.Invoke((MethodInvoker)delegate
+            browser.Invoke((MethodInvoker)delegate
             {
                 browser.PrintToFile(_config, filePath);
-                printReadySignal.Release();
             });
+            
+            var attempts = 0;
 
-            printReadySignal.Wait(); // Waiting before print will completed
+            while(Tools.IsFileLocked(filePath) || attempts >= MaxLockingCheckAttempts)
+            {
+                attempts++;
+                Thread.Sleep(PdfLockingCheckDelay);
+            }
+
+            if (attempts >= MaxLockingCheckAttempts)
+            {
+                throw new IOException("Generated pdf file locked too long");
+            }
 
             // Read temporary file to MemoryStream and delete
             var ms = new MemoryStream(File.ReadAllBytes(filePath));
             File.Delete(filePath);
 
-            browser.Dispose();
+            browser.Invoke((MethodInvoker)delegate
+            {
+                browser.Dispose();
+            });
 
             return ms;
         }
@@ -73,6 +89,14 @@ namespace GeckoPdf
         {
             var ms = await Task.Run(() => Convert(url));
             return ms;
+        }
+
+        /// <summary>
+        /// Unloads gecko engine. Need to be invoked always, when application shutdown
+        /// </summary>
+        public static void UnloadGecko()
+        {
+            HeadlessGecko.Unload();
         }
     }
 }

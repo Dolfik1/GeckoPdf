@@ -44,7 +44,6 @@ namespace GeckoPdf
 
             Xpcom.EnableProfileMonitoring = false;
             Xpcom.Initialize("Firefox");
-
             Application.Run();
         }
 
@@ -103,6 +102,14 @@ namespace GeckoPdf
                 throw new InvalidOperationException("Xul is not initialized yet");
 
             return (GeckoWebBrowser)_invoker.Invoke(new Func<GeckoWebBrowser>(CreateBrowserInternal));
+        }
+
+        /// <summary>
+        /// Unloads Gecko application
+        /// </summary>
+        public static void Unload()
+        {
+            Application.Exit();
         }
 
         #endregion

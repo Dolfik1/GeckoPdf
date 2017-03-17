@@ -1,7 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using GeckoPdf.Config;
 using System.Threading.Tasks;
-using System.Threading;
 
 namespace GeckoPdf.Tests
 {
@@ -12,9 +11,11 @@ namespace GeckoPdf.Tests
         public void PrintGoogle()
         {
             var pdf = new GeckoPdf(new GeckoPdfConfig());
-            var ms = pdf.Convert("https://google.com");
+            var ms = pdf.Convert("https://www.w3.org");
             Assert.AreNotEqual(ms.Length, 0);
             ms.Close();
+
+            GeckoPdf.UnloadGecko();
         }
 
         [TestMethod]
