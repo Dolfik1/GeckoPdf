@@ -27,8 +27,8 @@ namespace GeckoPdf
         {
             _config = config;
         }
-
-        private MemoryStream ConvertToPdf(string url, NameValueCollection headers = null, IEnumerable<GeckoCookie> cookies = null)
+        
+        private MemoryStream ConvertToPdf(string url, string html, NameValueCollection headers = null, IEnumerable<GeckoCookie> cookies = null)
         {
 
             // Initialize gecko engine
@@ -47,10 +47,12 @@ namespace GeckoPdf
                     printReadySignal.Release();
                 });
             };
-            
-            if (cookies != null)
+
+            Uri uri = null;
+            var isUriSuccess = Uri.TryCreate(url, UriKind.Absolute, out uri);
+
+            if (isUriSuccess && cookies != null)
             {
-                var uri = new Uri(url);
                 foreach (var cookie in cookies)
                 {
                     CookieManager.Add(uri.Host, cookie.Path, cookie.Name, cookie.Value, cookie.Secure, cookie.HttpOnly, false, cookie.ExpiresUnix);
@@ -60,20 +62,32 @@ namespace GeckoPdf
             // Invoke navigate method in STA browser thread
             browser.Invoke((MethodInvoker)delegate
             {
+                MimeInputStream geckoHeaders = null;
                 if (headers != null)
                 {
-                    var geckoHeaders = MimeInputStream.Create();
+                    geckoHeaders = MimeInputStream.Create();
                     var headersItems = headers.AllKeys.SelectMany(headers.GetValues, (k, v) => new { Key = k, Value = v });
                     foreach (var header in headersItems)
                     {
                         geckoHeaders.AddHeader(header.Key, header.Value);
                     }
-
-                    browser.Navigate(url, GeckoLoadFlags.None, "", null, geckoHeaders);
                     return;
                 }
-                
-                browser.Navigate(url, GeckoLoadFlags.None);
+
+                if (geckoHeaders == null)
+                {
+                    if (string.IsNullOrEmpty(html))
+                        browser.Navigate(url, GeckoLoadFlags.None);
+                    else
+                        browser.LoadHtml(html, url);
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(html))
+                        browser.Navigate(url, GeckoLoadFlags.None, "", null, geckoHeaders);
+                    else
+                        browser.LoadHtml(html, url);
+                }
             });
 
             printReadySignal.Wait(); // Waiting before print will completed
@@ -117,7 +131,7 @@ namespace GeckoPdf
         /// <returns></returns>
         public MemoryStream Convert(string url)
         {
-            return ConvertToPdf(url);
+            return ConvertToPdf(url, string.Empty) ;
         }
         
         /// <summary>
@@ -129,7 +143,7 @@ namespace GeckoPdf
         /// <returns></returns>
         public MemoryStream Convert(string url, NameValueCollection headers, IEnumerable<GeckoCookie> cookies)
         {
-            return ConvertToPdf(url, headers, cookies);
+            return ConvertToPdf(url, string.Empty, headers, cookies);
         }
 
         /// <summary>
@@ -154,6 +168,11 @@ namespace GeckoPdf
         {
             var ms = await Task.Run(() => Convert(url, headers, cookies));
             return ms;
+        }
+
+        public MemoryStream ConvertHtml(string url, string html, NameValueCollection headers, IEnumerable<GeckoCookie> cookies)
+        {
+            return ConvertToPdf(url, html, headers, cookies);
         }
 
         /// <summary>

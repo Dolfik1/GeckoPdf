@@ -34,9 +34,11 @@
   <ItemGroup>
     <Reference Include="Geckofx-Core, Version=45.0.30.0, Culture=neutral, PublicKeyToken=3209ac31600d1857, processorArchitecture=x86">
       <HintPath>..\packages\Geckofx45.45.0.30\lib\net45\Geckofx-Core.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Geckofx-Winforms, Version=45.0.30.0, Culture=neutral, PublicKeyToken=3209ac31600d1857, processorArchitecture=x86">
       <HintPath>..\packages\Geckofx45.45.0.30\lib\net45\Geckofx-Winforms.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

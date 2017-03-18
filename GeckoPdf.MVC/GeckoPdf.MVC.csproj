@@ -69,6 +69,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Extensions\ControllerContextExtensions.cs" />
     <Compile Include="PdfResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
