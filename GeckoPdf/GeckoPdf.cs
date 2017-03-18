@@ -27,13 +27,22 @@ namespace GeckoPdf
         {
             _config = config;
         }
-        
-        private MemoryStream ConvertToPdf(string url, string html, NameValueCollection headers = null, IEnumerable<GeckoCookie> cookies = null)
+
+        private byte[] ConvertToPdf(string url, string html, string tempFilePath, NameValueCollection headers = null, IEnumerable<GeckoCookie> cookies = null)
         {
 
             // Initialize gecko engine
             if (!HeadlessGecko.IsInitialized)
-                HeadlessGecko.InitializeAsync(GeckoBinDirectory).Wait();
+            {
+                var initSignal = new SemaphoreSlim(0, 1);
+                HeadlessGecko.OnInitialized += () =>
+                {
+                    initSignal.Release();
+                };
+
+                HeadlessGecko.Initialize(GeckoBinDirectory);
+                initSignal.Wait();
+            }
 
             var printReadySignal = new SemaphoreSlim(0, 1);
 
@@ -48,24 +57,23 @@ namespace GeckoPdf
                 });
             };
 
-            Uri uri = null;
-            var isUriSuccess = Uri.TryCreate(url, UriKind.Absolute, out uri);
-
-            if (isUriSuccess && cookies != null)
-            {
-                foreach (var cookie in cookies)
-                {
-                    CookieManager.Add(uri.Host, cookie.Path, cookie.Name, cookie.Value, cookie.Secure, cookie.HttpOnly, false, cookie.ExpiresUnix);
-                }
-            }
 
             // Invoke navigate method in STA browser thread
             browser.Invoke((MethodInvoker)delegate
             {
-                MimeInputStream geckoHeaders = null;
+                Uri uri = null;
+                var isUriSuccess = Uri.TryCreate(url, UriKind.Absolute, out uri);
+
+                if (isUriSuccess && cookies != null)
+                {
+                    foreach (var cookie in cookies)
+                    {
+                        CookieManager.Add(uri.Host, cookie.Path, cookie.Name, cookie.Value, cookie.Secure, cookie.HttpOnly, false, cookie.ExpiresUnix);
+                    }
+                }
+                var geckoHeaders = MimeInputStream.Create();
                 if (headers != null)
                 {
-                    geckoHeaders = MimeInputStream.Create();
                     var headersItems = headers.AllKeys.SelectMany(headers.GetValues, (k, v) => new { Key = k, Value = v });
                     foreach (var header in headersItems)
                     {
@@ -73,35 +81,46 @@ namespace GeckoPdf
                     }
                     return;
                 }
-
-                if (geckoHeaders == null)
-                {
-                    if (string.IsNullOrEmpty(html))
-                        browser.Navigate(url, GeckoLoadFlags.None);
-                    else
-                        browser.LoadHtml(html, url);
-                }
                 else
                 {
-                    if (string.IsNullOrEmpty(html))
-                        browser.Navigate(url, GeckoLoadFlags.None, "", null, geckoHeaders);
-                    else
-                        browser.LoadHtml(html, url);
+                    geckoHeaders.AddHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0");
+                    geckoHeaders.AddHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                    geckoHeaders.AddHeader("Accept-Language", "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3");
+                    geckoHeaders.AddHeader("Accept-Encoding", "gzip, deflate, br");
+                    geckoHeaders.AddHeader("X-Compress", "1");
+                    geckoHeaders.AddHeader("Connection", "keep-alive");
                 }
+
+                if (string.IsNullOrEmpty(html))
+                    browser.Navigate(url, GeckoLoadFlags.None, url, null, geckoHeaders);
+                else
+                    browser.LoadHtml(html, url);
+
             });
 
             printReadySignal.Wait(); // Waiting before print will completed
+            //browser.NavigateFinishedNotifier.BlockUntilNavigationFinished();
 
             // Create temporary file and print page to him
-            var filePath = Path.GetTempFileName();
+            if (string.IsNullOrEmpty(tempFilePath))
+                tempFilePath = Path.GetTempFileName();
+
+            var fi = new FileInfo(tempFilePath);
+            if (!fi.Exists)
+            {
+                if (!fi.Directory.Exists)
+                    fi.Directory.Create();
+                File.Create(tempFilePath).Close();
+            }
+
             browser.Invoke((MethodInvoker)delegate
             {
-                browser.PrintToFile(_config, filePath);
+                browser.PrintToFile(_config, tempFilePath);
             });
 
             var attempts = 0;
 
-            while (Tools.IsFileLocked(filePath) || attempts >= _config.MaxLockingCheckAttempts)
+            while (Tools.IsFileLocked(tempFilePath) || attempts >= _config.MaxLockingCheckAttempts)
             {
                 attempts++;
                 Thread.Sleep(_config.PdfLockingCheckDelay);
@@ -113,37 +132,39 @@ namespace GeckoPdf
             }
 
             // Read temporary file to MemoryStream and delete
-            var ms = new MemoryStream(File.ReadAllBytes(filePath));
-            File.Delete(filePath);
+            var bytes = File.ReadAllBytes(tempFilePath);
+            File.Delete(tempFilePath);
 
             browser.Invoke((MethodInvoker)delegate
             {
                 browser.Dispose();
             });
 
-            return ms;
+            return bytes;
         }
 
         /// <summary>
         /// Converts HTML page to PDF from specified url
         /// </summary>
         /// <param name="url">URL address to convert</param>
+        /// <param name="tempFilePath">Location of temporary file (file will be deleted after using)</param>
         /// <returns></returns>
-        public MemoryStream Convert(string url)
+        public byte[] Convert(string url, string tempFilePath = "")
         {
-            return ConvertToPdf(url, string.Empty) ;
+            return ConvertToPdf(url, tempFilePath, string.Empty);
         }
-        
+
         /// <summary>
         /// Converts HTML page to PDF from specified url
         /// </summary>
         /// <param name="url">URL address to convert</param>
         /// <param name="headers">Browser headers</param>
         /// <param name="cookies">Browser cookies</param>
+        /// <param name="tempFilePath">Location of temporary file (file will be deleted after using)</param>
         /// <returns></returns>
-        public MemoryStream Convert(string url, NameValueCollection headers, IEnumerable<GeckoCookie> cookies)
+        public byte[] Convert(string url, NameValueCollection headers, IEnumerable<GeckoCookie> cookies, string tempFilePath = "")
         {
-            return ConvertToPdf(url, string.Empty, headers, cookies);
+            return ConvertToPdf(url, string.Empty, tempFilePath, headers, cookies);
         }
 
         /// <summary>
@@ -151,10 +172,9 @@ namespace GeckoPdf
         /// </summary>
         /// <param name="url">URL address to convert</param>
         /// <returns></returns>
-        public async Task<MemoryStream> ConvertAsync(string url)
+        public async Task<byte[]> ConvertAsync(string url, string tempFilePath = "")
         {
-            var ms = await Task.Run(() => Convert(url));
-            return ms;
+            return await Task.Run(() => Convert(url));
         }
 
         /// <summary>
@@ -163,16 +183,16 @@ namespace GeckoPdf
         /// <param name="url">URL address to convert</param>
         /// <param name="headers">Browser headers</param>
         /// <param name="cookies">Browser cookies</param>
+        /// <param name="tempFilePath">Location of temporary file (file will be deleted after using)</param>
         /// <returns></returns>
-        public async Task<MemoryStream> ConvertAsync(string url, NameValueCollection headers, IEnumerable<GeckoCookie> cookies)
+        public async Task<byte[]> ConvertAsync(string url, NameValueCollection headers, IEnumerable<GeckoCookie> cookies, string tempFilePath = "")
         {
-            var ms = await Task.Run(() => Convert(url, headers, cookies));
-            return ms;
+            return await Task.Run(() => Convert(url, headers, cookies));
         }
 
-        public MemoryStream ConvertHtml(string url, string html, NameValueCollection headers, IEnumerable<GeckoCookie> cookies)
+        public byte[] ConvertHtml(string url, string html, NameValueCollection headers, IEnumerable<GeckoCookie> cookies, string tempFilePath = "")
         {
-            return ConvertToPdf(url, html, headers, cookies);
+            return ConvertToPdf(url, html, tempFilePath, headers, cookies);
         }
 
         /// <summary>

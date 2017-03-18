@@ -44,7 +44,7 @@
         /// <summary>
         /// Print odd pages (default true)
         /// </summary>
-        public bool PrintOddPages { get; set; }
+        public bool PrintOddPages { get; set; } = true;
 
         /// <summary>
         /// Scale of document content (default 1.0)

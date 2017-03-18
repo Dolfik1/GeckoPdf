@@ -10,6 +10,7 @@ namespace GeckoPdf.Extensions
             var print = Xpcom.QueryInterface<nsIWebBrowserPrint>(browser.Window.DomWindow);
             var ps = print.GetGlobalPrintSettingsAttribute();
 
+            
             ps.SetPrintSilentAttribute(true);
             ps.SetPrintToFileAttribute(true);
             ps.SetShowPrintProgressAttribute(false);
@@ -17,7 +18,7 @@ namespace GeckoPdf.Extensions
 
             ps.SetToFileNameAttribute(filePath);
 
-            ps.SetPrintBGImagesAttribute(config.PrintBackgroundImages);
+            ps.SetPrintBGImagesAttribute(false);
             ps.SetStartPageRangeAttribute(config.StartPageRange);
             ps.SetEndPageRangeAttribute(config.EndPageRange);
             ps.SetPrintOptions(2, config.PrintEvenPages); // evenPages
@@ -25,7 +26,17 @@ namespace GeckoPdf.Extensions
             //ps.SetEffectivePageSize(768 * 20f, 1024 * 20f);
             ps.SetShrinkToFitAttribute(config.ShrinkToFit);
             ps.SetScalingAttribute(config.DocumentScale);
+
+            ps.SetFooterStrCenterAttribute("");
+            ps.SetFooterStrLeftAttribute("");
+            ps.SetFooterStrRightAttribute("");
+
+            ps.SetHeaderStrCenterAttribute("");
+            ps.SetHeaderStrRightAttribute("");
+            ps.SetHeaderStrLeftAttribute("");
             
+            
+
             print.Print(ps, null);
         }
     }

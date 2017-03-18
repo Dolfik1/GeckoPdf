@@ -35,6 +35,7 @@ namespace GeckoPdf.MVC
             MasterName = string.Empty;
             ViewName = string.Empty;
             Model = null;
+            _config = config;
         }
 
         public PdfResult(string viewName, GeckoPdfConfig config)
@@ -89,10 +90,10 @@ namespace GeckoPdf.MVC
             var viewResult = GetView(context, viewName, MasterName);
             var html = context.GetHtmlFromView(viewResult, viewName, Model);
 
-            var ms = new GeckoPdf(_config).ConvertHtml(context.HttpContext.Request.Url.AbsoluteUri, html, headers, geckoCookies);
+            var tempDir = context.HttpContext.Server.MapPath("~/App_Data/temp");
+            var tempFile = Path.Combine(tempDir, Guid.NewGuid().ToString() + ".tmp");
 
-            var bytes = ms.GetBuffer();
-            ms.Dispose();
+            var bytes = new GeckoPdf(_config).ConvertHtml(context.HttpContext.Request.Url.AbsoluteUri, html, null, geckoCookies, tempFile);
 
             var response = PrepareResponse(context.HttpContext.Response);
             response.OutputStream.Write(bytes, 0, bytes.Length);
