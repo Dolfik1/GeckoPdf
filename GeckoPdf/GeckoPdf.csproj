@@ -53,6 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config\GeckoCookie.cs" />
+    <Compile Include="Config\GeckoMargins.cs" />
     <Compile Include="Config\Orientation.cs" />
     <Compile Include="Config\PageFormat.cs" />
     <Compile Include="Extensions\GeckoWebBrowserExtensions.cs" />

@@ -7,6 +7,9 @@ namespace GeckoPdf.Extensions
     {
         public static void PrintToFile(this GeckoWebBrowser browser, GeckoPdfConfig config, string filePath)
         {
+            if (config.PageMargins == null)
+                config.PageMargins = new GeckoMargins(0, 0, 0, 0);
+
             var print = Xpcom.QueryInterface<nsIWebBrowserPrint>(browser.Window.DomWindow);
             var ps = print.GetGlobalPrintSettingsAttribute();
 
@@ -27,15 +30,18 @@ namespace GeckoPdf.Extensions
             ps.SetShrinkToFitAttribute(config.ShrinkToFit);
             ps.SetScalingAttribute(config.DocumentScale);
 
-            ps.SetFooterStrCenterAttribute("");
-            ps.SetFooterStrLeftAttribute("");
-            ps.SetFooterStrRightAttribute("");
+            ps.SetFooterStrCenterAttribute(config.FooterCenter);
+            ps.SetFooterStrLeftAttribute(config.FooterLeft);
+            ps.SetFooterStrRightAttribute(config.FooterRight);
 
             ps.SetHeaderStrCenterAttribute("");
             ps.SetHeaderStrRightAttribute("");
             ps.SetHeaderStrLeftAttribute("");
-            
-            
+
+            ps.SetMarginTopAttribute(config.PageMargins.Top);
+            ps.SetMarginBottomAttribute(config.PageMargins.Bottom);
+            ps.SetMarginRightAttribute(config.PageMargins.Right);
+            ps.SetMarginLeftAttribute(config.PageMargins.Left);
 
             print.Print(ps, null);
         }

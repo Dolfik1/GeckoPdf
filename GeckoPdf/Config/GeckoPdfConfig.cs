@@ -52,5 +52,13 @@
         public double DocumentScale { get; set; } = 1.0;
 
         public bool IsJavaScriptEnabled { get; set; } = true;
+
+        public GeckoMargins PageMargins { get; set; }
+
+        public string FooterLeft { get; set; }
+
+        public string FooterRight { get; set; }
+
+        public string FooterCenter { get; set; }
     }
 }
