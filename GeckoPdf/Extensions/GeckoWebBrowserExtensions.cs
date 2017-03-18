@@ -25,7 +25,7 @@ namespace GeckoPdf.Extensions
             //ps.SetEffectivePageSize(768 * 20f, 1024 * 20f);
             ps.SetShrinkToFitAttribute(config.ShrinkToFit);
             ps.SetScalingAttribute(config.DocumentScale);
-
+            
             print.Print(ps, null);
         }
     }

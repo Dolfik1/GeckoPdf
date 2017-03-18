@@ -2,6 +2,20 @@
 {
     public class GeckoPdfConfig
     {
+
+        #region Engine specific config
+
+        public int MaxLockingCheckAttempts { get; set; } = 100;
+
+        public int PdfLockingCheckDelay { get; set; } = 100;
+
+        #endregion
+
+        /// <summary>
+        /// Name of generated file
+        /// </summary>
+        public string FileName { get; set; }
+
         /// <summary>
         /// Printing bakground images
         /// </summary>

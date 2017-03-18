@@ -21,6 +21,7 @@ namespace GeckoPdf
         public delegate void InitializedEventHandler();
         public static event InitializedEventHandler OnInitialized;
         private static SemaphoreSlim _initializedSignal;
+        private static string _xulPath;
 
         #endregion
 
@@ -43,7 +44,7 @@ namespace GeckoPdf
             };
 
             Xpcom.EnableProfileMonitoring = false;
-            Xpcom.Initialize("Firefox");
+            Xpcom.Initialize(_xulPath);
             Application.Run();
         }
 
@@ -70,24 +71,25 @@ namespace GeckoPdf
         /// <summary>
         /// Initialize xul
         /// </summary>
-        public static void Initialize()
+        public static void Initialize(string binDirectory)
         {
             if (_initialized)
                 return;
 
+            _xulPath = binDirectory;
             _appThread = new Thread(InitXul);
             _appThread.SetApartmentState(ApartmentState.STA);
             _appThread.Start();
         }
 
         /// <summary>
-        /// Initialize xul asynchronously
+        /// Asynchronously initialize xul
         /// </summary>
         /// <returns></returns>
-        public static async Task InitializeAsync()
+        public static async Task InitializeAsync(string binDirectory)
         {
             _initializedSignal = new SemaphoreSlim(0, 1);
-            Initialize();
+            Initialize(binDirectory);
 
             await _initializedSignal.WaitAsync();
         }
